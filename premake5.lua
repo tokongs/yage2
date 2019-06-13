@@ -21,7 +21,9 @@ project "yage"
     files
     {
         "%{prj.name}/src/**.cpp",
-        "%{prj.name}/src/graphics/**.cpp"
+        "%{prj.name}/src/graphics/**.cpp",
+        "3rd-party/glm/glm/**.hpp",
+        "3rd-party/glm/glm/**.inl"
     }
 
     includedirs
@@ -35,14 +37,12 @@ project "yage"
     libdirs
     {
         "3rd-party/glfw3.3/build/src/",
-        "3rd-party/glm/build/glm/",
         "3rd-party/VulkanSDK/lib/"
     }
 
     links
     {
         "glfw",
-        "glm_shared",
         "vulkan"
     }
     
