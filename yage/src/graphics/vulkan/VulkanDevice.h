@@ -31,6 +31,7 @@ namespace yage{
         VulkanDevice(GLFWwindow* glfwWindow);
         ~VulkanDevice();
 
+        void drawFrame();
 
         private:
         void createInstance();
@@ -43,6 +44,10 @@ namespace yage{
         void createImageViews();
         void createGraphicsPipeline();
         void createRenderPass();
+        void createFramebuffers();
+        void createCommandPool();
+        void createCommandBuffers();
+        void createSemaphores();
         
         VkShaderModule createShaderModule(const std::vector<char>& code);
 
@@ -75,11 +80,17 @@ namespace yage{
         VkExtent2D                  m_swapChainExtent;
         std::vector<VkImageView>    m_swapChainImageViews;
         GLFWwindow*                 m_glfwWindow;
+        std::vector<VkFramebuffer>  m_swapChainFramebuffers;
+        VkCommandPool               m_commandPool;
+        std::vector<VkCommandBuffer> m_commandBuffers;
+        VkSemaphore                 m_imageAvailableSemaphore;
+        VkSemaphore                 m_renderFinishedSemaphore;
 
 
 
         const std::vector<const char*> m_validationLayers = {
-            "VK_LAYER_KHRONOS_validation"
+            "VK_LAYER_KHRONOS_validation",
+            "VVK_LAYER_LUNARG_standard_validation"
         };
         const std::vector<const char*> m_deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME

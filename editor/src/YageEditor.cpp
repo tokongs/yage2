@@ -20,5 +20,6 @@ void YageEditor::run(){
     m_running = true;
     while(!glfwWindowShouldClose(m_window)){
         glfwPollEvents();
+        m_device->drawFrame();
     }
 }
