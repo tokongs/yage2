@@ -49,7 +49,6 @@ project "yage"
     }
 
     filter "system:windows"
-        staticruntime "On"
         systemversion "latest"
         defines
         {
@@ -129,8 +128,6 @@ project "editor"
 
     
     filter "system:windows"
-
-        staticruntime "On"
         systemversion "latest"
 
         defines
