@@ -5,7 +5,6 @@ namespace yage{
         :m_glfwWindow(glfwWindow){
         createInstance();
         setupDebugMessenger();
-        listAvailableInstanceExtensions();
         createSurface();
         setupPhysicalDevice();
         createLogicalDevice();
@@ -13,9 +12,19 @@ namespace yage{
         createImageViews();
         createRenderPass();
         createGraphicsPipeline();
+        createFramebuffers();
+        createCommandPool();
+        createCommandBuffers();
+        createSemaphores();
     }
 
     VulkanDevice::~VulkanDevice(){
+        vkDestroySemaphore(m_device, m_imageAvailableSemaphore, nullptr);
+        vkDestroySemaphore(m_device, m_renderFinishedSemaphore, nullptr);
+        vkDestroyCommandPool(m_device, m_commandPool, nullptr);
+        for(auto framebuffer : m_swapChainFramebuffers){
+            vkDestroyFramebuffer(m_device, framebuffer, nullptr);
+        }
         vkDestroyPipeline(m_device, m_graphicsPipeline, nullptr);
         vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
         vkDestroyRenderPass(m_device, m_renderPass, nullptr);
@@ -29,9 +38,47 @@ namespace yage{
         vkDestroyInstance(m_instance, nullptr);
     }
 
+    void VulkanDevice::drawFrame(){
+        uint32_t imageIndex;
+        vkAcquireNextImageKHR(m_device, m_swapChain, std::numeric_limits<uint64_t>::max(), m_imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+
+        VkSubmitInfo submitInfo = {};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+        VkSemaphore waitSemaphores[] = {m_imageAvailableSemaphore};
+        VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+        submitInfo.waitSemaphoreCount = 1;
+        submitInfo.pWaitSemaphores = waitSemaphores;
+        submitInfo.pWaitDstStageMask = waitStages;
+
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &m_commandBuffers[imageIndex];
+
+        VkSemaphore signalSemaphores[] = {m_renderFinishedSemaphore};
+        submitInfo.signalSemaphoreCount = 1;
+        submitInfo.pSignalSemaphores = signalSemaphores;
+
+        if(vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS){
+            YAGE_ERROR("Failed to draw Vulkan command buffer");
+        }
+
+        VkPresentInfoKHR presentInfo = {};
+        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        presentInfo.waitSemaphoreCount = 1;
+        presentInfo.pWaitSemaphores = signalSemaphores;
+
+        VkSwapchainKHR swapChains[] = {m_swapChain};
+        presentInfo.swapchainCount = 1;
+        presentInfo.pSwapchains = swapChains;
+        presentInfo.pImageIndices = &imageIndex;
+        presentInfo.pResults = nullptr;
+
+        vkQueuePresentKHR(m_presentQueue, &presentInfo);
+    }   
+
     void VulkanDevice::createInstance(){
         if(m_enableValidationLayers && !checkValidationLayerSupport()){
-            YAGE_ERROR("One or more of the requested Vulkan validation layers are not available!");
+            YAGE_WARN("One or more of the requested Vulkan validation layers are not available!");
         }
 
         VkApplicationInfo appInfo = {};
@@ -243,6 +290,94 @@ namespace yage{
         YAGE_ERROR("Failed to load vulkan extensions function vkCreateDebugUtilsMessengerEXT");
     }
 
+    void VulkanDevice::createFramebuffers(){
+        m_swapChainFramebuffers.resize(m_swapChainImageViews.size());
+
+        for(size_t i = 0; i < m_swapChainImageViews.size(); i++){
+            VkImageView attachments[] = {m_swapChainImageViews[i]};
+
+            VkFramebufferCreateInfo framebufferInfo = {};
+            framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+            framebufferInfo.renderPass = m_renderPass;
+            framebufferInfo.attachmentCount = 1;
+            framebufferInfo.pAttachments = attachments;
+            framebufferInfo.width = m_swapChainExtent.width;
+            framebufferInfo.height = m_swapChainExtent.height;
+            framebufferInfo.layers = 1;
+
+            if(vkCreateFramebuffer(m_device, &framebufferInfo, nullptr, &m_swapChainFramebuffers[i]) != VK_SUCCESS){
+                YAGE_ERROR("Failed to create Vulkan framebuffer!");
+            }
+        }
+    }
+
+    void VulkanDevice::createCommandPool(){
+        QueueFamilyIndices queueFamilyIndices = findQueueFamilies(m_physicalDevice);
+
+        VkCommandPoolCreateInfo poolInfo = {};
+        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+        poolInfo.flags = 0;
+
+        if(vkCreateCommandPool(m_device, &poolInfo, nullptr, &m_commandPool) != VK_SUCCESS){
+            YAGE_ERROR("Failed to create Vulkan command pool");
+        }
+    }
+
+    void VulkanDevice::createCommandBuffers(){
+        m_commandBuffers.resize(m_swapChainFramebuffers.size());
+        VkCommandBufferAllocateInfo allocInfo = {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.commandPool = m_commandPool;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandBufferCount = (uint32_t) m_commandBuffers.size();
+
+        if(vkAllocateCommandBuffers(m_device, &allocInfo, m_commandBuffers.data()) != VK_SUCCESS){
+            YAGE_ERROR("Failed to create Vulkan command buffers!");
+        }
+
+        for(size_t i = 0; i < m_commandBuffers.size(); i++){
+            VkCommandBufferBeginInfo beginInfo = {};
+            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+            beginInfo.pInheritanceInfo = nullptr;
+
+            if(vkBeginCommandBuffer(m_commandBuffers[i], &beginInfo) != VK_SUCCESS){
+                YAGE_ERROR("Failed to begin recording Vulkan command buffer!");
+            }
+
+            VkRenderPassBeginInfo renderPassInfo = {};
+            renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+            renderPassInfo.renderPass = m_renderPass;
+            renderPassInfo.framebuffer = m_swapChainFramebuffers[i];
+            renderPassInfo.renderArea.offset = {0, 0};
+            renderPassInfo.renderArea.extent = m_swapChainExtent;
+
+            VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 0.0f};
+            renderPassInfo.clearValueCount = 1;
+            renderPassInfo.pClearValues = &clearColor;
+
+            vkCmdBeginRenderPass(m_commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+            vkCmdBindPipeline(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
+            vkCmdDraw(m_commandBuffers[i], 3, 1, 0, 0);
+            vkCmdEndRenderPass(m_commandBuffers[i]);
+
+            if(vkEndCommandBuffer(m_commandBuffers[i]) != VK_SUCCESS){
+                YAGE_ERROR("Failed to record Vulkan command buffer");
+            }
+        }
+
+    }
+
+    void VulkanDevice::createSemaphores(){
+        VkSemaphoreCreateInfo semaphoreInfo = {};
+        semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        
+        if(vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &m_imageAvailableSemaphore) != VK_SUCCESS ||
+           vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &m_renderFinishedSemaphore) != VK_SUCCESS){
+               YAGE_ERROR("Failed to create Vulkan semaphores!");
+           }
+    }
     void VulkanDevice::destroyDebugMessenger(){
         auto destroyFunc = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(m_instance, 
             "vkDestroyDebugUtilsMessengerEXT");
@@ -306,7 +441,7 @@ namespace yage{
         vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &presentModeCount, nullptr);
 
         if(presentModeCount != 0){
-            details.presentModes.resize(formatCount);
+            details.presentModes.resize(presentModeCount);
             vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &presentModeCount, details.presentModes.data());
         }
 
@@ -498,6 +633,17 @@ namespace yage{
         renderPassInfo.subpassCount = 1;
         renderPassInfo.pSubpasses = &subpass;
 
+        VkSubpassDependency dependency = {};
+        dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+        dependency.dstSubpass = 0;
+        dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependency.srcAccessMask = 0;
+        dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;  
+
+        renderPassInfo.dependencyCount = 1;
+        renderPassInfo.pDependencies = &dependency;
+
         if(vkCreateRenderPass(m_device, &renderPassInfo, nullptr, &m_renderPass) != VK_SUCCESS){
             YAGE_ERROR("Failed to create Vulkan render pass");
         }
@@ -587,7 +733,6 @@ namespace yage{
         if(extensionsSupported){
             SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
             swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
-            YAGE_INFO(swapChainAdequate);
         }
 
         return indices.isComplete() && extensionsSupported && swapChainAdequate;
