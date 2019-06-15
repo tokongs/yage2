@@ -1,7 +1,7 @@
 #pragma once
 #include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
-#include <yage.h>
+#include <core.h>
 #include <vector>
 #include <algorithm>
 #include <optional>

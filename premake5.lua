@@ -1,5 +1,6 @@
 workspace "yage"
     architecture "x64"
+	startproject "editor"
 
     configurations
     {
@@ -12,8 +13,9 @@ outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
 project "yage"
     location "yage"
-    kind "SharedLib"
+    kind "StaticLib"
     language "C++"
+	 cppdialect "c++17"
 
     targetdir ("bin/" .. outputdir .. "/%{prj.name}")
     objdir ("obj/" .. outputdir .. "/%{prj.name}")
@@ -21,37 +23,30 @@ project "yage"
     files
     {
         "%{prj.name}/src/**.cpp",
-        "%{prj.name}/src/graphics/**.cpp",
-        "3rd-party/glm/glm/**.hpp",
-        "3rd-party/glm/glm/**.inl"
+		 "%{prj.name}/src/**.h",
     }
 
     includedirs
     {
-        "3rd-party/VulkanSDK/include",
-        "3rd-party/glfw3.3/include",
-        "3rd-party/spdlog-1.3.1/include",
+        "3rd-party/include/vulkan",
+        "3rd-party/include/glfw",
+        "3rd-party/include/spdlog",
+        "3rd-party/include/glm",
         "%{prj.name}/src/",
         "%{prj.name}/src/graphics"
     }
     libdirs
     {
-        "3rd-party/glfw3.3/build/src/",
-        "3rd-party/VulkanSDK/lib/"
+        "3rd-party/%{cfg.system}/glfw",
+        "3rd-party/%{cfg.system}/vulkan"
     }
 
-    links
-    {
-        "glfw",
-        "vulkan"
-    }
+
     
     defines
     {
         "SPDLOG_COMPILED_LIB"
     }
-
-    cppdialect "c++17"
 
     filter "system:windows"
         staticruntime "On"
@@ -61,22 +56,39 @@ project "yage"
             "YAGE_PLATFORM_WINDOWS"
         }
 
+		links
+		{
+			"glfw3",
+			"vulkan",
+			"opengl32.lib"
+
+		}
+
     filter "system:linux"
         defines
         {
             "YAGE_PLATFORM_LINUX"
         }
 
+		links
+		{
+			"glfw",
+			"vulkan"
+		}
+
     filter "configurations:Debug"
         defines "YAGE_DEBUG"
+		runtime "Debug"
         symbols "On"
 
     filter "configurations:Release"
         defines "YAGE_RELEASE"
+		runtime "Release"
         optimize "On"
 
     filter "configurations:Dist"
         defines "YAGE_DIST"
+		runtime "Release"
         optimize "On"
 
     postbuildcommands
@@ -87,9 +99,8 @@ project "yage"
 project "editor"
     location "editor"
     kind "ConsoleApp"
-
     language "C++"
-
+	cppdialect "c++17"
 
     targetdir ("bin/" .. outputdir .. "/%{prj.name}")
     objdir ("obj/" .. outputdir .. "/%{prj.name}")
@@ -97,31 +108,26 @@ project "editor"
     files
     {
         "%{prj.name}/src/**.cpp",
+		"%{prj.name}/src/**.h"
     }
 
     includedirs
     {
-        "3rd-party/VulkanSDK/include",
-        "3rd-party/spdlog-1.3.1/include",
+        "3rd-party/include/vulkan",
+        "3rd-party/include/glfw",
+        "3rd-party/include/spdlog",
+        "3rd-party/include/glm",
         "yage/src/",
         "%{prj.name}/src/"
     }
 
     libdirs
     {
-        "3rd-party/glfw3.3/build/src/",
-        "3rd-party/glm/build/glm/",
-        "3rd-party/VulkanSDK/lib/"
+        "3rd-party/%{cfg.system}/glfw",
+        "3rd-party/%{cfg.system}/vulkan"
     }
 
-    links
-    {
-        "glfw",
-        "glm_shared",
-        "vulkan",
-        "yage"
-    }
-    cppdialect "c++17"
+    
     filter "system:windows"
 
         staticruntime "On"
@@ -132,21 +138,38 @@ project "editor"
             "YAGE_PLATFORM_WINDOWS"
         }
 
+		links
+		{
+		    "glfw3",
+		    "vulkan",
+		    "yage",
+			"opengl32.lib"
+		}
+
     filter "system:linux"
         defines
         {
             "YAGE_PLATFORM_LINUX"
         }
 
+		links
+		{
+		    "glfw",
+		    "vulkan",
+		    "yage"
+		}
 
 filter "configurations:Debug"
     defines "YAGE_DEBUG"
+	runtime "Debug"
     symbols "On"
 
 filter "configurations:Release"
     defines "YAGE_RELEASE"
+	runtime "Release"
     optimize "On"
 
 filter "configurations:Dist"
     defines "YAGE_DIST"
+	runtime "Release"
     optimize "On"
