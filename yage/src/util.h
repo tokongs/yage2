@@ -2,7 +2,7 @@
 #include <vector>
 #include <string>
 #include <fstream>
-#include <Logger.h>>
+#include <Logger.h>
 
 static std::vector<char> readBinary(const std::string& filename){
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
