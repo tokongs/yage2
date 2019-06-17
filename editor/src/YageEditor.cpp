@@ -6,6 +6,8 @@ YageEditor::YageEditor(){
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     m_window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan test", nullptr, nullptr);
+    glfwSetWindowUserPointer(m_window, this);
+    glfwSetFramebufferSizeCallback(m_window, frameBufferResizeCallback);
 
     m_device = new yage::VulkanDevice(m_window);
 }
@@ -22,4 +24,11 @@ void YageEditor::run(){
         glfwPollEvents();
         m_device->drawFrame();
     }
+
+    m_device->waitDeviceIdle();
+}
+
+static void frameBufferResizeCallback(GLFWwindow* window, int width, int height){
+    auto app = reinterpret_cast<YageEditor*>(glfwGetWindowUserPointer(window));
+    app->m_device->setFrameBufferResized(true);
 }

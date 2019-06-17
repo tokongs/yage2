@@ -15,37 +15,44 @@ namespace yage{
         createFramebuffers();
         createCommandPool();
         createCommandBuffers();
-        createSemaphores();
+        createSyncObjects();
     }
 
     VulkanDevice::~VulkanDevice(){
-        vkDestroySemaphore(m_device, m_imageAvailableSemaphore, nullptr);
-        vkDestroySemaphore(m_device, m_renderFinishedSemaphore, nullptr);
+
+        cleanupSwapChain();
+        for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+            vkDestroySemaphore(m_device, m_imageAvailableSemaphores[i], nullptr);
+            vkDestroySemaphore(m_device, m_renderFinishedSemaphores[i], nullptr);   
+            vkDestroyFence(m_device, m_inFlightFences[i], nullptr);         
+        }
         vkDestroyCommandPool(m_device, m_commandPool, nullptr);
-        for(auto framebuffer : m_swapChainFramebuffers){
-            vkDestroyFramebuffer(m_device, framebuffer, nullptr);
-        }
-        vkDestroyPipeline(m_device, m_graphicsPipeline, nullptr);
-        vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
-        vkDestroyRenderPass(m_device, m_renderPass, nullptr);
-        for(auto imageView : m_swapChainImageViews){
-            vkDestroyImageView(m_device, imageView, nullptr);
-        }
-        vkDestroySwapchainKHR(m_device, m_swapChain, nullptr);
         vkDestroyDevice(m_device, nullptr);
-        destroyDebugMessenger();
+        if(m_enableValidationLayers)
+            destroyDebugMessenger();
+
         vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
         vkDestroyInstance(m_instance, nullptr);
     }
 
     void VulkanDevice::drawFrame(){
+        
+        vkWaitForFences(m_device, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
+
         uint32_t imageIndex;
-        vkAcquireNextImageKHR(m_device, m_swapChain, std::numeric_limits<uint64_t>::max(), m_imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+        VkResult result = vkAcquireNextImageKHR(m_device, m_swapChain, std::numeric_limits<uint64_t>::max(), m_imageAvailableSemaphores[m_currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+        if(result == VK_ERROR_OUT_OF_DATE_KHR){
+            recreateSwapChain();
+            return;
+        } else if(result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR){
+            YAGE_ERROR("Failed to aquire Vulkan swap chain image!");
+        }
 
         VkSubmitInfo submitInfo = {};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-        VkSemaphore waitSemaphores[] = {m_imageAvailableSemaphore};
+        VkSemaphore waitSemaphores[] = {m_imageAvailableSemaphores[m_currentFrame]};
         VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
         submitInfo.waitSemaphoreCount = 1;
         submitInfo.pWaitSemaphores = waitSemaphores;
@@ -54,11 +61,14 @@ namespace yage{
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &m_commandBuffers[imageIndex];
 
-        VkSemaphore signalSemaphores[] = {m_renderFinishedSemaphore};
+        VkSemaphore signalSemaphores[] = {m_renderFinishedSemaphores[m_currentFrame]};
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = signalSemaphores;
 
-        if(vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS){
+        vkResetFences(m_device, 1, &m_inFlightFences[m_currentFrame]);
+
+
+        if(vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, m_inFlightFences[m_currentFrame]) != VK_SUCCESS){
             YAGE_ERROR("Failed to draw Vulkan command buffer");
         }
 
@@ -73,8 +83,40 @@ namespace yage{
         presentInfo.pImageIndices = &imageIndex;
         presentInfo.pResults = nullptr;
 
-        vkQueuePresentKHR(m_presentQueue, &presentInfo);
-    }   
+        result = vkQueuePresentKHR(m_presentQueue, &presentInfo);
+
+        if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_frameBufferResized){
+            m_frameBufferResized = false;
+            recreateSwapChain();
+        }else if(result != VK_SUCCESS){
+            YAGE_ERROR("Failed to present Vulkan swap chain image!");
+        }
+
+        m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    }
+
+    void VulkanDevice::waitDeviceIdle(){
+        vkDeviceWaitIdle(m_device);
+    }
+
+    void VulkanDevice::recreateSwapChain(){
+        int width = 0, height = 0;
+        while(width == 0 || height == 0){
+            glfwGetFramebufferSize(m_glfwWindow, &width, &height);
+            glfwWaitEvents();
+        }
+        waitDeviceIdle();
+        createSwapChain();
+        createImageViews();
+        createRenderPass();
+        createGraphicsPipeline();
+        createFramebuffers();
+        createCommandBuffers();
+    }
+
+    void VulkanDevice::setFrameBufferResized(const bool resized){
+        m_frameBufferResized = resized;
+    }
 
     void VulkanDevice::createInstance(){
         if(m_enableValidationLayers && !checkValidationLayerSupport()){
@@ -369,14 +411,28 @@ namespace yage{
 
     }
 
-    void VulkanDevice::createSemaphores(){
+    void VulkanDevice::createSyncObjects(){
+
+        m_imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+        m_renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+        m_inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+
+
         VkSemaphoreCreateInfo semaphoreInfo = {};
         semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-        
-        if(vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &m_imageAvailableSemaphore) != VK_SUCCESS ||
-           vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &m_renderFinishedSemaphore) != VK_SUCCESS){
-               YAGE_ERROR("Failed to create Vulkan semaphores!");
+
+        VkFenceCreateInfo fenceInfo = {};
+        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+        for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+            if(vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &m_imageAvailableSemaphores[i]) != VK_SUCCESS ||
+                vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &m_renderFinishedSemaphores[i]) != VK_SUCCESS ||
+                vkCreateFence(m_device, &fenceInfo, nullptr, &m_inFlightFences[i]) != VK_SUCCESS){
+                YAGE_ERROR("Failed to create Vulkan synchronization objects for a frame!");
            }
+        }
+
     }
     void VulkanDevice::destroyDebugMessenger(){
         auto destroyFunc = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(m_instance, 
@@ -663,6 +719,24 @@ namespace yage{
         return shaderModule;
     }
 
+    void VulkanDevice::cleanupSwapChain(){
+        for(size_t i = 0; i <m_swapChainFramebuffers.size(); i++){
+            vkDestroyFramebuffer(m_device, m_swapChainFramebuffers[i], nullptr);
+        }
+
+        vkFreeCommandBuffers(m_device, m_commandPool, static_cast<uint32_t>(m_commandBuffers.size()), m_commandBuffers.data());
+
+        vkDestroyPipeline(m_device, m_graphicsPipeline, nullptr);
+        vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
+        vkDestroyRenderPass(m_device, m_renderPass, nullptr);
+
+        for(size_t i = 0; i < m_swapChainImageViews.size(); i++){
+            vkDestroyImageView(m_device, m_swapChainImageViews[i], nullptr);
+        }
+
+        vkDestroySwapchainKHR(m_device, m_swapChain, nullptr);
+    }
+
     VkPresentModeKHR VulkanDevice::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes){
 
         VkPresentModeKHR bestMode = VK_PRESENT_MODE_FIFO_KHR;
@@ -682,10 +756,12 @@ namespace yage{
         if(capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()){
             return capabilities.currentExtent;
         }else{
-            VkExtent2D actualExtent = {1024, 768};
-
-            actualExtent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, actualExtent.width));
-            actualExtent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, actualExtent.height));
+            int width, height;
+            glfwGetFramebufferSize(m_glfwWindow, &width, &height);
+            VkExtent2D actualExtent = {
+                static_cast<uint32_t>(width), 
+                static_cast<uint32_t>(height)
+            };
 
             return actualExtent;
         }
