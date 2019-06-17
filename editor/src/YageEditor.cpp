@@ -1,34 +1,20 @@
 #include <YageEditor.h>
 
 YageEditor::YageEditor(){
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
-    m_window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan test", nullptr, nullptr);
-    glfwSetWindowUserPointer(m_window, this);
-    glfwSetFramebufferSizeCallback(m_window, frameBufferResizeCallback);
-
-    m_device = new yage::VulkanDevice(m_window);
+	m_window = std::make_shared<yage::Window>(WIDTH, HEIGHT);
+	m_vulkanDevice = std::make_shared<yage::VulkanDevice>(m_window);
 }
 
 YageEditor::~YageEditor(){
-    delete m_device;
-    glfwDestroyWindow(m_window);
-    glfwTerminate();
+
 }
 
 void YageEditor::run(){
     m_running = true;
-    while(!glfwWindowShouldClose(m_window)){
-        glfwPollEvents();
-        m_device->drawFrame();
+    while(!m_window->windowShouldClose()){
+        m_window->update();
+        m_vulkanDevice->drawFrame();
     }
 
-    m_device->waitDeviceIdle();
-}
-
-static void frameBufferResizeCallback(GLFWwindow* window, int width, int height){
-    auto app = reinterpret_cast<YageEditor*>(glfwGetWindowUserPointer(window));
-    app->m_device->setFrameBufferResized(true);
+    m_vulkanDevice->waitDeviceIdle();
 }

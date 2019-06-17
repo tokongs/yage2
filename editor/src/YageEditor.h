@@ -1,9 +1,9 @@
 #pragma once
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-#include <functional>
+
+#include <memory>
 #include <yage.h>
 #include <graphics/vulkan/VulkanDevice.h>
+#include <Window.h>
 
 
 
@@ -14,12 +14,11 @@ class YageEditor : public yage::Application{
 
         void run() override;
 
-        GLFWwindow* m_window;
-        yage::VulkanDevice* m_device;
-
-    private:
+    private: 
         const int WIDTH = 1024;
         const int HEIGHT = 768;
+        std::shared_ptr<yage::VulkanDevice> m_vulkanDevice;
+        std::shared_ptr<yage::Window> m_window;
 
 };
 

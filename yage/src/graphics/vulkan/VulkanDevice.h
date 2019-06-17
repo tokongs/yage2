@@ -1,12 +1,15 @@
 #pragma once
-#include <vulkan/vulkan.h>
-#include <GLFW/glfw3.h>
 #include <core.h>
 #include <vector>
 #include <algorithm>
 #include <optional>
+#include <memory>
 #include <set>
+#include <vulkan/vulkan.h>
+#include <GLFW/glfw3.h>
 #include <util.h>
+#include <Window.h>
+
 
 namespace yage{
 
@@ -28,13 +31,13 @@ namespace yage{
     class VulkanDevice{
 
         public:
-        VulkanDevice(GLFWwindow* glfwWindow);
+        VulkanDevice(std::shared_ptr<Window> window);
         ~VulkanDevice();
 
         void drawFrame();
         void waitDeviceIdle();
         void recreateSwapChain();
-        void setFrameBufferResized(const bool resized);
+        void notifyFramebufferSizeChange(const int framebufferWidth, const int framebufferHeighr);
 
         private:
         void createInstance();
@@ -85,13 +88,13 @@ namespace yage{
         VkFormat                        m_swapChainImageFormat;
         VkExtent2D                      m_swapChainExtent;
         std::vector<VkImageView>        m_swapChainImageViews;
-        GLFWwindow*                     m_glfwWindow;
         std::vector<VkFramebuffer>      m_swapChainFramebuffers;
         VkCommandPool                   m_commandPool;
         std::vector<VkCommandBuffer>    m_commandBuffers;
         std::vector<VkSemaphore>        m_imageAvailableSemaphores;
         std::vector<VkSemaphore>        m_renderFinishedSemaphores;
         std::vector<VkFence>            m_inFlightFences;
+        std::shared_ptr<Window>         m_window;
         size_t                          m_currentFrame = 0;
         bool                            m_frameBufferResized = false;
 

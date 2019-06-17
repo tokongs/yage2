@@ -45,7 +45,8 @@ project "yage"
     
     defines
     {
-        "SPDLOG_COMPILED_LIB"
+        "SPDLOG_COMPILED_LIB",
+        "YAGE_VULKAN"
     }
 
     filter "system:windows"

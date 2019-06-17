@@ -1,8 +1,9 @@
 #include "VulkanDevice.h"
 namespace yage{
 
-    VulkanDevice::VulkanDevice(GLFWwindow* glfwWindow)
-        :m_glfwWindow(glfwWindow){
+    VulkanDevice::VulkanDevice(std::shared_ptr<Window> window)
+        : m_window(window)
+    {
         createInstance();
         setupDebugMessenger();
         createSurface();
@@ -100,11 +101,6 @@ namespace yage{
     }
 
     void VulkanDevice::recreateSwapChain(){
-        int width = 0, height = 0;
-        while(width == 0 || height == 0){
-            glfwGetFramebufferSize(m_glfwWindow, &width, &height);
-            glfwWaitEvents();
-        }
         waitDeviceIdle();
         createSwapChain();
         createImageViews();
@@ -114,8 +110,8 @@ namespace yage{
         createCommandBuffers();
     }
 
-    void VulkanDevice::setFrameBufferResized(const bool resized){
-        m_frameBufferResized = resized;
+    void VulkanDevice::notifyFramebufferSizeChange(const int framebufferWidth, const int framebufferHeight){
+        m_frameBufferResized = true;
     }
 
     void VulkanDevice::createInstance(){
@@ -757,7 +753,7 @@ namespace yage{
             return capabilities.currentExtent;
         }else{
             int width, height;
-            glfwGetFramebufferSize(m_glfwWindow, &width, &height);
+            glfwGetFramebufferSize(m_window->getGLFWwindow(), &width, &height);
             VkExtent2D actualExtent = {
                 static_cast<uint32_t>(width), 
                 static_cast<uint32_t>(height)
@@ -795,7 +791,7 @@ namespace yage{
     }
 
     void VulkanDevice::createSurface(){
-        if(glfwCreateWindowSurface(m_instance, m_glfwWindow, nullptr, &m_surface) != VK_SUCCESS){
+        if(glfwCreateWindowSurface(m_instance, m_window->getGLFWwindow(), nullptr, &m_surface) != VK_SUCCESS){
             YAGE_ERROR("Failed to create Vulkan window surface!");
         }
     }
