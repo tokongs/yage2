@@ -1,8 +1,11 @@
 #include <YageEditor.h>
 
 YageEditor::YageEditor(){
-	m_window = std::make_shared<yage::Window>(WIDTH, HEIGHT);
+    #ifdef YAGE_GLFW
+	    m_window = std::make_shared<yage::GLFWWindow>(WIDTH, HEIGHT);
+    #endif
 	m_vulkanDevice = std::make_shared<yage::VulkanDevice>(m_window);
+    m_running = true;
 }
 
 YageEditor::~YageEditor(){
@@ -10,8 +13,7 @@ YageEditor::~YageEditor(){
 }
 
 void YageEditor::run(){
-    m_running = true;
-    while(!m_window->windowShouldClose()){
+    while(m_running){
         m_window->update();
         m_vulkanDevice->drawFrame();
     }

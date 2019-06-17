@@ -1,7 +1,7 @@
 #include "VulkanDevice.h"
 namespace yage{
 
-    VulkanDevice::VulkanDevice(std::shared_ptr<Window> window)
+    VulkanDevice::VulkanDevice(std::shared_ptr<IWindow> window)
         : m_window(window)
     {
         createInstance();
@@ -753,7 +753,9 @@ namespace yage{
             return capabilities.currentExtent;
         }else{
             int width, height;
-            glfwGetFramebufferSize(m_window->getGLFWwindow(), &width, &height);
+            #ifdef YAGE_GLFW
+                glfwGetFramebufferSize((GLFWwindow*)m_window->getUnderlyingWindow(), &width, &height);
+            #endif
             VkExtent2D actualExtent = {
                 static_cast<uint32_t>(width), 
                 static_cast<uint32_t>(height)
@@ -791,9 +793,11 @@ namespace yage{
     }
 
     void VulkanDevice::createSurface(){
-        if(glfwCreateWindowSurface(m_instance, m_window->getGLFWwindow(), nullptr, &m_surface) != VK_SUCCESS){
-            YAGE_ERROR("Failed to create Vulkan window surface!");
-        }
+        #ifdef YAGE_GLFW
+            if(glfwCreateWindowSurface(m_instance, (GLFWwindow*)m_window->getUnderlyingWindow(), nullptr, &m_surface) != VK_SUCCESS){
+                YAGE_ERROR("Failed to create Vulkan window surface!");
+            }
+        #endif
     }
 
     bool VulkanDevice::isDeviceSuitable(VkPhysicalDevice device){

@@ -8,7 +8,7 @@
 #include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
 #include <util.h>
-#include <Window.h>
+#include <IWindow.h>
 
 
 namespace yage{
@@ -31,7 +31,7 @@ namespace yage{
     class VulkanDevice{
 
         public:
-        VulkanDevice(std::shared_ptr<Window> window);
+        VulkanDevice(std::shared_ptr<IWindow> window);
         ~VulkanDevice();
 
         void drawFrame();
@@ -94,7 +94,7 @@ namespace yage{
         std::vector<VkSemaphore>        m_imageAvailableSemaphores;
         std::vector<VkSemaphore>        m_renderFinishedSemaphores;
         std::vector<VkFence>            m_inFlightFences;
-        std::shared_ptr<Window>         m_window;
+        std::shared_ptr<IWindow>         m_window;
         size_t                          m_currentFrame = 0;
         bool                            m_frameBufferResized = false;
 

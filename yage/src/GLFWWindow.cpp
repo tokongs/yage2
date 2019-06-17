@@ -1,4 +1,4 @@
-#include <Window.h>
+#include <GLFWWindow.h>
 
 namespace yage{
 
@@ -6,7 +6,7 @@ namespace yage{
         YAGE_ERROR("GLFW ERROR CALLBACK: code: {} {}", error, description);
     }
 
-    Window::Window(const int width, const int height)
+    GLFWWindow::GLFWWindow(const int width, const int height)
     : m_width(width), m_height(height){
         if(!glfwInit()){
             YAGE_ERROR("Failed to initialize GLFW!");
@@ -22,21 +22,26 @@ namespace yage{
         }
     }
 
-    Window::~Window(){
+    GLFWWindow::~GLFWWindow(){
         YAGE_INFO("Terminating GLFW");
         glfwDestroyWindow(m_glfwWindow);
         glfwTerminate();
     }
 
-    void Window::update(){
+    void GLFWWindow::update(){
         glfwPollEvents();
     }
 
-    bool Window::windowShouldClose() const{
-        return glfwWindowShouldClose(m_glfwWindow);
+
+    unsigned int GLFWWindow::getWidth() const{
+        return m_width;
     }
 
-    GLFWwindow* Window::getGLFWwindow(){
+    unsigned int GLFWWindow::getHeight() const{
+        return m_height;
+    }
+
+    void* GLFWWindow::getUnderlyingWindow() const{
         return m_glfwWindow;
     }
 }
