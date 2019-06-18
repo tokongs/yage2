@@ -387,3 +387,7 @@ healthchecksdb
 
 # Backup folder for Package Reference Convert tool in Visual Studio 2017
 MigrationBackup/
+/editor/editor.vcxproj
+/yage/yage.vcxproj
+/yage/yage.vcxproj.filters
+/yage.sln
