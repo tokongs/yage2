@@ -45,7 +45,9 @@ project "yage"
     
     defines
     {
-        "SPDLOG_COMPILED_LIB"
+        "SPDLOG_COMPILED_LIB",
+        "YAGE_VULKAN",
+        "YAGE_GLFW"
     }
 
     filter "system:windows"
@@ -126,6 +128,11 @@ project "editor"
         "3rd-party/%{cfg.system}/vulkan"
     }
 
+    defines
+    {
+        "YAGE_VULKAN",
+        "YAGE_GLFW"
+    }
     
     filter "system:windows"
         systemversion "latest"

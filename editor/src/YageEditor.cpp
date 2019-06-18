@@ -1,25 +1,22 @@
 #include <YageEditor.h>
 
 YageEditor::YageEditor(){
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
-    m_window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan test", nullptr, nullptr);
-
-    m_device = new yage::VulkanDevice(m_window);
+    #ifdef YAGE_GLFW
+	    m_window = std::make_shared<yage::GLFWWindow>(WIDTH, HEIGHT);
+    #endif
+	m_vulkanDevice = std::make_shared<yage::VulkanDevice>(m_window);
+    m_running = true;
 }
 
 YageEditor::~YageEditor(){
-    delete m_device;
-    glfwDestroyWindow(m_window);
-    glfwTerminate();
+
 }
 
 void YageEditor::run(){
-    m_running = true;
-    while(!glfwWindowShouldClose(m_window)){
-        glfwPollEvents();
-        m_device->drawFrame();
+    while(m_running){
+        m_window->update();
+        m_vulkanDevice->drawFrame();
     }
+
+    m_vulkanDevice->waitDeviceIdle();
 }

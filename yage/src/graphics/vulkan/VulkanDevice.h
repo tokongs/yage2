@@ -1,12 +1,15 @@
 #pragma once
-#include <vulkan/vulkan.h>
-#include <GLFW/glfw3.h>
 #include <core.h>
 #include <vector>
 #include <algorithm>
 #include <optional>
+#include <memory>
 #include <set>
+#include <vulkan/vulkan.h>
+#include <GLFW/glfw3.h>
 #include <util.h>
+#include <IWindow.h>
+
 
 namespace yage{
 
@@ -28,10 +31,13 @@ namespace yage{
     class VulkanDevice{
 
         public:
-        VulkanDevice(GLFWwindow* glfwWindow);
+        VulkanDevice(std::shared_ptr<IWindow> window);
         ~VulkanDevice();
 
         void drawFrame();
+        void waitDeviceIdle();
+        void recreateSwapChain();
+        void notifyFramebufferSizeChange(const int framebufferWidth, const int framebufferHeighr);
 
         private:
         void createInstance();
@@ -47,7 +53,10 @@ namespace yage{
         void createFramebuffers();
         void createCommandPool();
         void createCommandBuffers();
-        void createSemaphores();
+        void createSyncObjects();
+
+        void cleanupSwapChain();
+
         
         VkShaderModule createShaderModule(const std::vector<char>& code);
 
@@ -64,29 +73,32 @@ namespace yage{
         VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 
         private:
-        VkInstance                  m_instance;
-        VkDebugUtilsMessengerEXT    m_debugMessenger;
-        VkPhysicalDevice            m_physicalDevice;
-        VkDevice                    m_device;
-        VkQueue                     m_graphicsQueue;
-        VkSurfaceKHR                m_surface;
-        VkQueue                     m_presentQueue;
-        VkSwapchainKHR              m_swapChain;
-        VkPipelineLayout            m_pipelineLayout;
-        VkRenderPass                m_renderPass;
-        VkPipeline                  m_graphicsPipeline;
-        std::vector<VkImage>        m_swapChainImages;
-        VkFormat                    m_swapChainImageFormat;
-        VkExtent2D                  m_swapChainExtent;
-        std::vector<VkImageView>    m_swapChainImageViews;
-        GLFWwindow*                 m_glfwWindow;
-        std::vector<VkFramebuffer>  m_swapChainFramebuffers;
-        VkCommandPool               m_commandPool;
-        std::vector<VkCommandBuffer> m_commandBuffers;
-        VkSemaphore                 m_imageAvailableSemaphore;
-        VkSemaphore                 m_renderFinishedSemaphore;
+        VkInstance                      m_instance;
+        VkDebugUtilsMessengerEXT        m_debugMessenger;
+        VkPhysicalDevice                m_physicalDevice;
+        VkDevice                        m_device;
+        VkQueue                         m_graphicsQueue;
+        VkSurfaceKHR                    m_surface;
+        VkQueue                         m_presentQueue;
+        VkSwapchainKHR                  m_swapChain;
+        VkPipelineLayout                m_pipelineLayout;
+        VkRenderPass                    m_renderPass;
+        VkPipeline                      m_graphicsPipeline;
+        std::vector<VkImage>            m_swapChainImages;
+        VkFormat                        m_swapChainImageFormat;
+        VkExtent2D                      m_swapChainExtent;
+        std::vector<VkImageView>        m_swapChainImageViews;
+        std::vector<VkFramebuffer>      m_swapChainFramebuffers;
+        VkCommandPool                   m_commandPool;
+        std::vector<VkCommandBuffer>    m_commandBuffers;
+        std::vector<VkSemaphore>        m_imageAvailableSemaphores;
+        std::vector<VkSemaphore>        m_renderFinishedSemaphores;
+        std::vector<VkFence>            m_inFlightFences;
+        std::shared_ptr<IWindow>         m_window;
+        size_t                          m_currentFrame = 0;
+        bool                            m_frameBufferResized = false;
 
-
+        const int MAX_FRAMES_IN_FLIGHT = 2;
 
         const std::vector<const char*> m_validationLayers = {
             "VK_LAYER_KHRONOS_validation",
