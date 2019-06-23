@@ -73,8 +73,10 @@ project "yage"
 
 		links
 		{
-			"glfw",
-			"vulkan"
+			"glfw3",
+            "vulkan",
+            "dl",
+            "pthread"
 		}
 
     filter "configurations:Debug"
@@ -158,9 +160,12 @@ project "editor"
 
 		links
 		{
-		    "glfw",
+		    "glfw3",
 		    "vulkan",
-		    "yage"
+            "yage",
+            "dl",
+            "pthread",
+            "X11"
 		}
 
 filter "configurations:Debug"
